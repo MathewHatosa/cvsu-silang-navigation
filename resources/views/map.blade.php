@@ -120,32 +120,41 @@
     L.control.layers({ "OpenStreetMap": osmLayer, "Esri Satellite": esriSat }, null, { position: 'topright' }).addTo(map);
 
     // =========================================================================
-    // EXACT BLACK-LINE PATHWAY NETWORK (Straight Bldg 1-2 Corridor + Normal West Path to Bldg 3)
+    // FULL CAMPUS GRAPH INCLUDING THE 3 NEW YELLOW HORIZONTAL SHORTCUTS
     // =========================================================================
     const defaultCampusNodes = {
-        // 1. West Main Pathway Spine (Black line from Guard House up to North-West corner of Gym)
+        // 1. West Main Spine (Bottom to Top)
         w0:          { lat: 14.240890, lng: 120.978745, name: "Guard House / Main Gate" },
-        w_b1_jct:    { lat: 14.241042, lng: 120.978742, name: "West Walkway (First Building Junction)" },
+        w_b1_jct:    { lat: 14.241042, lng: 120.978742, name: "West Walkway (First Building Front)" },
+        w_back_b1:   { lat: 14.241155, lng: 120.978766, name: "West Walkway (Behind First Building)" },
+        w_gym_mid:   { lat: 14.241265, lng: 120.978788, name: "West Walkway (Gymnasium Side)" },
         w_gym_n:     { lat: 14.241428, lng: 120.978822, name: "West Walkway (Upper Gym Corner)" },
+        w_b3_front:  { lat: 14.241530, lng: 120.978844, name: "West Walkway (Third Building Front)" },
         w_north:     { lat: 14.241715, lng: 120.978882, name: "North-West Corner (Above Third Building)" },
 
-        // 2. Straight Black-Line Shortcut Inside/Along Building 1 & Building 2
+        // 2. Front Corridor Through Building 1 & Building 2
         b1_pin:      { lat: 14.241010, lng: 120.978915, name: "Building 1 - Administration" },
         clinic_door: { lat: 14.240982, lng: 120.979065, name: "University Clinic" },
         s_gap:       { lat: 14.240972, lng: 120.979122, name: "Central Walkway Intersection (Between Bldg 1 & 2)" },
         b2_pin:      { lat: 14.240938, lng: 120.979310, name: "Building 2 - General Academic" },
         b2_east:     { lat: 14.240905, lng: 120.979485, name: "Second Building East End" },
 
-        // 3. Normal Upper Pathway to Building 3 (Black line above Gym turning straight into Third Bldg)
-        b3_turn:     { lat: 14.241382, lng: 120.979092, name: "Third Building Approach Corner" },
-        b3_pin:      { lat: 14.241525, lng: 120.979118, name: "Building 3 - IT & Computer Science" },
+        // 3. NEW SHORTCUT #1: Corridor Behind First & Second Building (Bottom Yellow Line)
+        m_gap:       { lat: 14.241088, lng: 120.979145, name: "Walkway Behind Bldg 1 & 2 (Gym South)" },
+        m_east:      { lat: 14.241018, lng: 120.979515, name: "East Walkway Behind Second Building" },
 
-        // 4. Central Gymnasium Shortcut (For Building 2 -> Gym / North Campus)
+        // 4. NEW SHORTCUT #2: Gymnasium Cross-Walkway (Middle Yellow Line)
         gym_c:       { lat: 14.241215, lng: 120.979168, name: "Campus Gymnasium / Covered Court" },
         n_gap:       { lat: 14.241365, lng: 120.979198, name: "Gymnasium North Exit" },
 
-        // 5. East Walkway to HM/Tourism & North Canteen
-        e_alley_s:   { lat: 14.241345, lng: 120.979310, name: "East Alley Intersection" },
+        // 5. Corridor North of Gym + NEW SHORTCUT #3: Third Building Front Corridor (Top Yellow Line)
+        b3_turn:     { lat: 14.241382, lng: 120.979092, name: "Upper Walkway (South of Third Building)" },
+        b3_front:    { lat: 14.241485, lng: 120.979112, name: "Third Building Front Corridor" },
+        b3_pin:      { lat: 14.241525, lng: 120.979118, name: "Building 3 - IT & Computer Science" },
+        e_alley_b3:  { lat: 14.241442, lng: 120.979325, name: "East Alley (Third Building Front Corner)" },
+
+        // 6. East Alley to HM/Tourism & North Canteen
+        e_alley_s:   { lat: 14.241345, lng: 120.979310, name: "East Alley South Intersection" },
         hm_alley_s:  { lat: 14.241328, lng: 120.979405, name: "HM & Tourism Walkway" },
         hm_pin:      { lat: 14.241465, lng: 120.979430, name: "Hostel for HM & Tourism Building" },
         n_east:      { lat: 14.241635, lng: 120.979360, name: "North-East Corner (Student Park)" },
@@ -153,37 +162,54 @@
         canteen_pin: { lat: 14.241785, lng: 120.979205, name: "Student Canteen" }
     };
 
-    const STORAGE_KEY = 'cvsu_silang_paths_v6';
+    const STORAGE_KEY = 'cvsu_silang_paths_v7';
     let campusNodes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(JSON.stringify(defaultCampusNodes));
 
-    // Connections matching your black line drawing
+    // All walkable pathways & shortcuts (Pure shortest-distance routing)
     const campusEdges = [
-        // 1. West Spine (Guard House -> Bldg 1 Junction -> Upper Gym Corner -> North-West)
+        // 1. West Spine
         ['w0', 'w_b1_jct'],
-        ['w_b1_jct', 'w_gym_n'],
-        ['w_gym_n', 'w_north'],
+        ['w_b1_jct', 'w_back_b1'],
+        ['w_back_b1', 'w_gym_mid'],
+        ['w_gym_mid', 'w_gym_n'],
+        ['w_gym_n', 'w_b3_front'],
+        ['w_b3_front', 'w_north'],
 
-        // 2. Straight Black-Line Corridor Through Building 1 & Building 2
+        // 2. Front Corridor (Building 1 <-> Clinic <-> Gap <-> Building 2)
         ['w_b1_jct', 'b1_pin'],
         ['b1_pin', 'clinic_door'],
         ['clinic_door', 's_gap'],
         ['s_gap', 'b2_pin'],
         ['b2_pin', 'b2_east'],
 
-        // 3. Normal Pathway to Building 3 (Upper Gym Corner -> Turn -> Building 3)
-        ['w_gym_n', 'b3_turn'],
-        ['b3_turn', 'b3_pin'],
+        // 3. NEW SHORTCUT #1: Behind First & Second Building (Bottom Yellow Line)
+        ['w_back_b1', 'm_gap'],
+        ['m_gap', 'm_east'],
 
-        // 4. Central Gymnasium Shortcut (Connected for Building 2 & Gym routing)
-        ['s_gap', 'gym_c'],
+        // 4. NEW SHORTCUT #2: West Walkway -> Straight into Gymnasium (Middle Yellow Line)
+        ['w_gym_mid', 'gym_c'],
+
+        // 5. Central Vertical Shortcut (Front Gap <-> Behind Bldg 1/2 <-> Gym <-> North Exit)
+        ['s_gap', 'm_gap'],
+        ['m_gap', 'gym_c'],
         ['gym_c', 'n_gap'],
-        ['b3_turn', 'n_gap'],
 
-        // 5. HM/Tourism & North Canteen Connections
+        // 6. Corridor North of Gym
+        ['w_gym_n', 'b3_turn'],
+        ['b3_turn', 'n_gap'],
         ['n_gap', 'e_alley_s'],
         ['e_alley_s', 'hm_alley_s'],
         ['hm_alley_s', 'hm_pin'],
-        ['e_alley_s', 'n_east'],
+
+        // 7. NEW SHORTCUT #3: Across Third Building Front (Top Yellow Line)
+        ['w_b3_front', 'b3_front'],
+        ['b3_front', 'e_alley_b3'],
+        ['b3_turn', 'b3_front'],
+        ['b3_front', 'b3_pin'],
+
+        // 8. Vertical East Alley & North Canteen Loop
+        ['e_alley_s', 'e_alley_b3'],
+        ['e_alley_b3', 'n_east'],
         ['w_north', 'canteen_jct'],
         ['canteen_jct', 'n_east'],
         ['canteen_jct', 'canteen_pin']
@@ -293,6 +319,7 @@
         return bestKey;
     }
 
+    // Pure Dijkstra Shortest Path — always uses the fastest shortcut available
     function findCampusPath(startNode, endNode) {
         const dists = {};
         const prev = {};
@@ -314,14 +341,7 @@
                 const v = (a === u) ? b : a;
                 if (!unvisited.has(v)) return;
 
-                let weight = distMeters(campusNodes[u].lat, campusNodes[u].lng, campusNodes[v].lat, campusNodes[v].lng);
-
-                // Keep Building 1 -> Building 3 on the normal West Pathway (black line)
-                // while allowing Building 2 -> Building 3 / Gym to use the central Gym shortcut
-                if (startNode === 'b1_pin' && endNode === 'b3_pin' && ((u === 's_gap' && v === 'gym_c') || (u === 'gym_c' && v === 's_gap'))) {
-                    weight += 50;
-                }
-
+                const weight = distMeters(campusNodes[u].lat, campusNodes[u].lng, campusNodes[v].lat, campusNodes[v].lng);
                 const alt = dists[u] + weight;
                 if (alt < dists[v]) {
                     dists[v] = alt;
