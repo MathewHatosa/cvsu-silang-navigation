@@ -60,6 +60,96 @@
         .pwd-active-btn {
             background: #1d4ed8 !important; color: #ffffff !important; border-color: #1d4ed8 !important;
         }
+
+        /* Starting Map Origin Indicator */
+        .start-marker-icon {
+            background: transparent;
+            border: none;
+        }
+        .start-pin-wrapper {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            cursor: pointer;
+        }
+        .start-pin-pulse {
+            position: absolute;
+            width: 34px;
+            height: 34px;
+            top: -1px;
+            left: 5px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, 0.5);
+            animation: startRadarPulse 2s infinite ease-out;
+            pointer-events: none;
+        }
+        .start-pin-circle {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #15803d;
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            z-index: 2;
+        }
+        .start-pin-badge {
+            position: relative;
+            margin-top: 1px;
+            background: #166534;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            border: 1px solid #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+            white-space: nowrap;
+            z-index: 3;
+        }
+        @keyframes startRadarPulse {
+            0% {
+                transform: scale(0.6);
+                opacity: 0.9;
+            }
+            70% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+        }
+
+        /* Static Route Flow Animation (Calm, relaxed pace) */
+        .leaflet-container path.route-flow-line-static {
+            stroke-dasharray: 10, 18;
+            animation: routeDashFlow 2.4s linear infinite;
+        }
+        /* Live Route Flow Animation (Faster walking pace) */
+        .leaflet-container path.route-flow-line-live {
+            stroke-dasharray: 10, 16;
+            animation: routeDashFlow 1.2s linear infinite;
+        }
+        @keyframes routeDashFlow {
+            from {
+                stroke-dashoffset: 26;
+            }
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -95,9 +185,12 @@
     <div class="card bg-light border-0 mb-2">
         <div class="card-body p-2">
             <div class="mb-2">
-                <label class="small fw-semibold">Starting Point (Origin)</label>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="small fw-semibold mb-0">Starting Point (Origin)</label>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">🟢 Marked on Map</span>
+                </div>
                 <div class="d-flex gap-1">
-                    <select id="originSelect" class="form-select form-select-sm" onchange="calculateRoute()"></select>
+                    <select id="originSelect" class="form-select form-select-sm" onchange="onOriginChange()"></select>
                     <button class="btn btn-sm btn-success text-nowrap" onclick="useRealGPS()">My GPS</button>
                 </div>
             </div>
@@ -357,6 +450,8 @@
     let kuboLayerGroup = L.layerGroup().addTo(map);
     let pwdLayerGroup = L.layerGroup();
     let activeRouteLayer = null;
+    let routeAnimId = null;
+    let guidePulseAnimId = null;
     let calibLayer = null;
     let calibLines = [];
     let isCalibMode = false;
@@ -379,6 +474,72 @@
     function resetCampusView() {
         map.setView([14.24120, 120.97898], 19);
     }
+
+    function updateOriginIndicator(coords = null, label = null) {
+        const originSelect = document.getElementById('originSelect');
+        if (!coords) {
+            const originVal = originSelect ? originSelect.value : null;
+            if (!originVal) {
+                coords = [campusNodes.w0.lat, campusNodes.w0.lng];
+                label = 'Guard House / Main Gate (Default Start)';
+            } else {
+                coords = originVal.split(',').map(Number);
+                label = originSelect.options[originSelect.selectedIndex]?.text || 'Starting Point';
+            }
+        } else if (!label && originSelect && originSelect.selectedIndex >= 0) {
+            label = originSelect.options[originSelect.selectedIndex]?.text || 'Starting Point';
+        }
+
+        const iconHtml = `
+            <div class="start-pin-wrapper">
+                <div class="start-pin-pulse"></div>
+                <div class="start-pin-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                    </svg>
+                </div>
+                <div class="start-pin-badge">START</div>
+            </div>
+        `;
+
+        const startIcon = L.divIcon({
+            className: 'start-marker-icon',
+            html: iconHtml,
+            iconSize: [44, 44],
+            iconAnchor: [22, 38],
+            popupAnchor: [0, -36]
+        });
+
+        if (userMarker) {
+            userMarker.setLatLng(coords);
+            userMarker.setIcon(startIcon);
+        } else {
+            userMarker = L.marker(coords, {
+                icon: startIcon,
+                zIndexOffset: 3500
+            }).addTo(map);
+        }
+
+        userMarker.bindPopup(`
+            <div class="text-center p-1" style="min-width:160px;">
+                <span class="badge bg-success mb-1">STARTING LOCATION</span>
+                <div class="fw-bold small text-dark">${label}</div>
+            </div>
+        `);
+        userMarker.bindTooltip(`📍 <b>Start:</b> ${label}`, {
+            direction: 'top',
+            offset: [0, -34],
+            permanent: false
+        });
+    }
+
+    function onOriginChange() {
+        updateOriginIndicator();
+        calculateRoute();
+    }
+
+    // Initialize starting map origin indicator immediately
+    updateOriginIndicator([campusNodes.w0.lat, campusNodes.w0.lng], 'Guard House / Main Gate (Default Start)');
 
     function distMeters(lat1, lng1, lat2, lng2) {
         return map.distance([lat1, lng1], [lat2, lng2]);
@@ -581,7 +742,7 @@
     function redrawLastRoute(shouldFit = false) {
         if (!lastRouteState) return;
         const { pathKeys } = findCampusPath(lastRouteState.startNode, lastRouteState.endNode);
-        drawPathOnMap(pathKeys, lastRouteState.emergencyStyle, shouldFit);
+        drawPathOnMap(pathKeys, lastRouteState.emergencyStyle, shouldFit, !isCalibMode);
     }
 
     function drawCalibNetwork() {
@@ -832,8 +993,187 @@
         return { pathKeys, totalCost: dists[endNode] };
     }
 
-    function drawPathOnMap(nodeKeys, emergencyStyle = false, shouldFitBounds = true) {
-        if (activeRouteLayer) map.removeLayer(activeRouteLayer);
+    function animateRouteDrawing(latlngs, outerPoly, innerPoly, tipMarker, endMarker, duration = 850) {
+        if (routeAnimId) {
+            cancelAnimationFrame(routeAnimId);
+            routeAnimId = null;
+        }
+
+        const dists = [0];
+        let totalDist = 0;
+        for (let i = 1; i < latlngs.length; i++) {
+            totalDist += distMeters(latlngs[i - 1][0], latlngs[i - 1][1], latlngs[i][0], latlngs[i][1]);
+            dists.push(totalDist);
+        }
+
+        if (totalDist <= 0) {
+            outerPoly.setLatLngs(latlngs);
+            innerPoly.setLatLngs(latlngs);
+            if (tipMarker && activeRouteLayer && activeRouteLayer.hasLayer(tipMarker)) {
+                activeRouteLayer.removeLayer(tipMarker);
+            }
+            if (endMarker && activeRouteLayer) endMarker.addTo(activeRouteLayer);
+            return;
+        }
+
+        const startTime = performance.now();
+
+        function step(now) {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease-out quad curve for natural decelerating motion
+            const ease = 1 - Math.pow(1 - progress, 2);
+            const currentDist = ease * totalDist;
+
+            let segIdx = 0;
+            while (segIdx < dists.length - 1 && dists[segIdx + 1] < currentDist) {
+                segIdx++;
+            }
+
+            const segStartDist = dists[segIdx];
+            const segEndDist = dists[segIdx + 1] || totalDist;
+            const segSpan = segEndDist - segStartDist;
+            const segRatio = segSpan > 0 ? (currentDist - segStartDist) / segSpan : 1;
+
+            const p1 = latlngs[segIdx];
+            const p2 = latlngs[Math.min(segIdx + 1, latlngs.length - 1)];
+
+            const currLat = p1[0] + (p2[0] - p1[0]) * segRatio;
+            const currLng = p1[1] + (p2[1] - p1[1]) * segRatio;
+            const currPoint = [currLat, currLng];
+
+            const drawnPts = latlngs.slice(0, segIdx + 1);
+            drawnPts.push(currPoint);
+
+            outerPoly.setLatLngs(drawnPts);
+            innerPoly.setLatLngs(drawnPts);
+            if (tipMarker) tipMarker.setLatLng(currPoint);
+
+            if (progress < 1) {
+                routeAnimId = requestAnimationFrame(step);
+            } else {
+                routeAnimId = null;
+                outerPoly.setLatLngs(latlngs);
+                innerPoly.setLatLngs(latlngs);
+                if (tipMarker && activeRouteLayer && activeRouteLayer.hasLayer(tipMarker)) {
+                    activeRouteLayer.removeLayer(tipMarker);
+                }
+                if (endMarker && activeRouteLayer && !activeRouteLayer.hasLayer(endMarker)) {
+                    endMarker.addTo(activeRouteLayer);
+                }
+                startStaticGuideAnimation(latlngs, innerColor);
+            }
+        }
+
+        routeAnimId = requestAnimationFrame(step);
+    }
+
+    function isCurrentOriginLive() {
+        const originSelect = document.getElementById('originSelect');
+        if (!originSelect || originSelect.selectedIndex < 0) return false;
+        const selectedText = originSelect.options[originSelect.selectedIndex]?.text || '';
+        return selectedText.toLowerCase().includes('live gps');
+    }
+
+    function startStaticGuideAnimation(latlngs, innerColor) {
+        if (guidePulseAnimId) {
+            cancelAnimationFrame(guidePulseAnimId);
+            guidePulseAnimId = null;
+        }
+        if (!activeRouteLayer || !latlngs || latlngs.length < 2) return;
+
+        const isLive = isCurrentOriginLive();
+
+        // 1. Directional animated dash line flowing from start to end (calmer on static map)
+        L.polyline(latlngs, {
+            color: '#ffffff',
+            weight: 3,
+            opacity: 0.85,
+            lineJoin: 'miter',
+            className: isLive ? 'route-flow-line-live' : 'route-flow-line-static',
+            interactive: false
+        }).addTo(activeRouteLayer);
+
+        // 2. Looping guide traveler pulse from start to end
+        const dists = [0];
+        let totalDist = 0;
+        for (let i = 1; i < latlngs.length; i++) {
+            totalDist += distMeters(latlngs[i - 1][0], latlngs[i - 1][1], latlngs[i][0], latlngs[i][1]);
+            dists.push(totalDist);
+        }
+        if (totalDist <= 0) return;
+
+        const traveler = L.circleMarker(latlngs[0], {
+            radius: 5.5,
+            color: '#ffffff',
+            weight: 2,
+            fillColor: innerColor || '#38bdf8',
+            fillOpacity: 0,
+            opacity: 0,
+            interactive: false
+        }).addTo(activeRouteLayer);
+
+        // If NOT a live location (static map), use a longer initial delay and longer pause between runs
+        const initialDelay = isLive ? 250 : 2000;   // 2.0s delay for static map before guide starts
+        const pauseDuration = isLive ? 600 : 4500;  // 4.5s rest between cycles for static map
+        const travelDuration = isLive
+            ? Math.min(2800, Math.max(1400, totalDist * 14))
+            : Math.min(4000, Math.max(2200, totalDist * 20)); // relaxed walking pace for static map
+        const cycleTime = initialDelay + travelDuration + pauseDuration;
+        let cycleStart = performance.now();
+
+        function loopStep(now) {
+            if (!activeRouteLayer || !activeRouteLayer.hasLayer(traveler)) {
+                guidePulseAnimId = null;
+                return;
+            }
+
+            const elapsed = (now - cycleStart) % cycleTime;
+
+            if (elapsed >= initialDelay && elapsed < (initialDelay + travelDuration)) {
+                traveler.setStyle({ opacity: 1, fillOpacity: 0.95 });
+                const progress = (elapsed - initialDelay) / travelDuration;
+                const currentDist = progress * totalDist;
+
+                let segIdx = 0;
+                while (segIdx < dists.length - 1 && dists[segIdx + 1] < currentDist) {
+                    segIdx++;
+                }
+
+                const segStartDist = dists[segIdx];
+                const segEndDist = dists[segIdx + 1] || totalDist;
+                const segSpan = segEndDist - segStartDist;
+                const segRatio = segSpan > 0 ? (currentDist - segStartDist) / segSpan : 1;
+
+                const p1 = latlngs[segIdx];
+                const p2 = latlngs[Math.min(segIdx + 1, latlngs.length - 1)];
+
+                const currLat = p1[0] + (p2[0] - p1[0]) * segRatio;
+                const currLng = p1[1] + (p2[1] - p1[1]) * segRatio;
+                traveler.setLatLng([currLat, currLng]);
+            } else {
+                traveler.setStyle({ opacity: 0, fillOpacity: 0 });
+            }
+
+            guidePulseAnimId = requestAnimationFrame(loopStep);
+        }
+
+        guidePulseAnimId = requestAnimationFrame(loopStep);
+    }
+
+    function drawPathOnMap(nodeKeys, emergencyStyle = false, shouldFitBounds = true, animate = true) {
+        if (routeAnimId) {
+            cancelAnimationFrame(routeAnimId);
+            routeAnimId = null;
+        }
+        if (guidePulseAnimId) {
+            cancelAnimationFrame(guidePulseAnimId);
+            guidePulseAnimId = null;
+        }
+        if (activeRouteLayer) {
+            map.removeLayer(activeRouteLayer);
+            activeRouteLayer = null;
+        }
 
         const sumBox = document.getElementById('routeSummary');
         const stepList = document.getElementById('routeSteps');
@@ -868,14 +1208,61 @@
         const innerColor = emergencyStyle ? '#ef4444' : (pwdModeEnabled ? '#60a5fa' : '#38bdf8');
         const endPt = latlngs[latlngs.length - 1];
 
-        activeRouteLayer = L.featureGroup([
-            L.polyline(latlngs, { color: outerColor, weight: 8, opacity: 0.9, lineJoin: 'miter', interactive: false }),
-            L.polyline(latlngs, { color: innerColor, weight: 4, opacity: 1, lineJoin: 'miter', interactive: false }),
-            L.circleMarker(endPt, { radius: 7, color: '#ffffff', weight: 2, fillColor: innerColor, fillOpacity: 1, interactive: false })
-        ]).addTo(map);
+        const endMarker = L.circleMarker(endPt, {
+            radius: 7,
+            color: '#ffffff',
+            weight: 2,
+            fillColor: innerColor,
+            fillOpacity: 1,
+            interactive: false
+        });
 
-        if (shouldFitBounds && !calibLayer) {
-            map.fitBounds(activeRouteLayer.getBounds(), { padding: [60, 60], maxZoom: 19 });
+        if (animate && latlngs.length >= 2) {
+            const outerPoly = L.polyline([latlngs[0]], {
+                color: outerColor,
+                weight: 8,
+                opacity: 0.9,
+                lineJoin: 'miter',
+                interactive: false
+            });
+            const innerPoly = L.polyline([latlngs[0]], {
+                color: innerColor,
+                weight: 4,
+                opacity: 1,
+                lineJoin: 'miter',
+                interactive: false
+            });
+            const tipMarker = L.circleMarker(latlngs[0], {
+                radius: 5,
+                color: '#ffffff',
+                weight: 2,
+                fillColor: innerColor,
+                fillOpacity: 1,
+                interactive: false
+            });
+
+            activeRouteLayer = L.featureGroup([outerPoly, innerPoly, tipMarker]).addTo(map);
+
+            if (shouldFitBounds && !calibLayer) {
+                const fullBounds = L.latLngBounds(latlngs);
+                map.fitBounds(fullBounds, { padding: [60, 60], maxZoom: 19 });
+            }
+
+            animateRouteDrawing(latlngs, outerPoly, innerPoly, tipMarker, endMarker, 850);
+        } else {
+            activeRouteLayer = L.featureGroup([
+                L.polyline(latlngs, { color: outerColor, weight: 8, opacity: 0.9, lineJoin: 'miter', interactive: false }),
+                L.polyline(latlngs, { color: innerColor, weight: 4, opacity: 1, lineJoin: 'miter', interactive: false }),
+                endMarker
+            ]).addTo(map);
+
+            if (shouldFitBounds && !calibLayer) {
+                map.fitBounds(activeRouteLayer.getBounds(), { padding: [60, 60], maxZoom: 19 });
+            }
+
+            if (!isCalibMode && latlngs.length >= 2) {
+                startStaticGuideAnimation(latlngs, innerColor);
+            }
         }
 
         const roundedDist = Math.max(5, Math.round(totalMeters));
@@ -998,11 +1385,6 @@
         facilityLayerGroup.clearLayers();
         Object.values(markers).forEach(m => map.removeLayer(m));
         markers = {};
-        if (userMarker) map.removeLayer(userMarker);
-
-        userMarker = L.circleMarker([campusNodes.w0.lat, campusNodes.w0.lng], {
-            radius: 7, color: '#ffffff', weight: 2, fillColor: '#22c55e', fillOpacity: 1
-        }).addTo(map).bindPopup('<b>Guard House / Main Gate (Start)</b>');
 
         const pinOverrides = {
             1: [campusNodes.b1_pin.lat, campusNodes.b1_pin.lng],
@@ -1081,6 +1463,8 @@
 
         if (prevOriginIdx > 0) originSelect.selectedIndex = prevOriginIdx;
         if (prevDestIdx > 0) destSelect.selectedIndex = prevDestIdx;
+
+        updateOriginIndicator();
     }
 
     function selectRoomFromBadge(buildingId, lat, lng, roomNum, roomName) {
@@ -1197,7 +1581,7 @@
             const originSelect = document.getElementById('originSelect');
             const gpsVal = `${userGpsCoords[0]},${userGpsCoords[1]}`;
             originSelect.innerHTML = `<option value="${gpsVal}" selected>My Live GPS (${userGpsCoords[0].toFixed(4)}, ${userGpsCoords[1].toFixed(4)})</option>` + originSelect.innerHTML;
-            if (userMarker) userMarker.setLatLng(userGpsCoords);
+            updateOriginIndicator(userGpsCoords, 'My Live GPS');
             calculateRoute(true, true);
         });
     }
@@ -1226,6 +1610,14 @@
     }
 
     function clearRoute() {
+        if (routeAnimId) {
+            cancelAnimationFrame(routeAnimId);
+            routeAnimId = null;
+        }
+        if (guidePulseAnimId) {
+            cancelAnimationFrame(guidePulseAnimId);
+            guidePulseAnimId = null;
+        }
         activeRoomInstruction = '';
         isEmergencyRoute = false;
         lastRouteState = null;
