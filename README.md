@@ -1,59 +1,151 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# CvSU Silang Campus Navigation System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An interactive web-based campus navigation and facility management system designed for **Cavite State University - Silang Campus**. The system enables students, faculty, and visitors to locate campus buildings, classrooms, offices, and facilities, while providing campus administrators with tools to manage campus location data and review navigation trends.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 📌 Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **Interactive Campus Map**: Visual navigation interface displaying buildings, coordinates, and facility boundaries.
+- **Search & Directory**: Search for buildings, specific rooms, and academic/administrative departments.
+- **Facility & Office Locator**: Quick access to clinic, faculty offices, comfort rooms, and student facilities.
+- **Admin Management Dashboard (`/admin`)**:
+  - Add and delete campus buildings and descriptions.
+  - Manage rooms associated with specific buildings.
+  - Manage campus facilities and GPS coordinates.
+  - View real-time navigation history and popular destinations.
+- **RESTful API Endpoints**: Internal endpoints providing campus GeoJSON/location data for frontend rendering.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 🛠️ Tech Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- **Backend Framework**: [Laravel 12](https://laravel.com/) (PHP ^8.2)
+- **Frontend / Styling**: Blade Templates, [Tailwind CSS v4](https://tailwindcss.com/), [Vite](https://vitejs.dev/)
+- **Database**: MySQL / MariaDB (via XAMPP, Laragon, or standalone MySQL)
+- **Map / Scripting**: Vanilla JavaScript, Leaflet / Custom map coordinate engine
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 📋 System Requirements
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Ensure the following prerequisites are installed on your machine:
+- **PHP** >= 8.2 (with `pdo_mysql`, `openssl`, `mbstring`, `fileinfo` extensions enabled)
+- **Composer** (PHP dependency manager)
+- **Node.js** (v18.x or later) & **npm**
+- **MySQL / MariaDB** (e.g., via [XAMPP](https://www.apachefriends.org/) or [Laragon](https://laragon.org/))
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## 🚀 Installation & Setup Guide
 
-## Contributing
+### 1. Clone or Open the Project
+Open a terminal in the project root folder:
+```powershell
+cd cvsu-silang-navigation-main
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 2. Environment Configuration
+Duplicate `.env.example` into `.env`:
+```powershell
+# Windows (PowerShell / CMD)
+copy .env.example .env
 
-## Code of Conduct
+# macOS / Linux
+cp .env.example .env
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 3. Install Backend Dependencies
+```bash
+composer install
+```
 
-## Security Vulnerabilities
+### 4. Install Frontend Dependencies
+```bash
+npm install
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 5. Generate Application Key
+```bash
+php artisan key:generate
+```
 
-## License
+### 6. Automated Database Setup (One Command)
+Make sure your **MySQL** service is started (e.g., via XAMPP Control Panel or Laragon). Then run:
+```bash
+php artisan db:setup
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+**What this automated command does:**
+1. Connects to MySQL using your `.env` configuration.
+2. Automatically creates the database (`campus_navigation_db`) if it doesn't already exist.
+3. Automatically imports `database/campus_navigation_db.sql` (buildings, rooms, departments, facilities, and navigation history).
+4. Runs all Laravel migrations (users, cache, jobs).
+
+> [!TIP]
+> If you ever want to completely reset and recreate your database from scratch with fresh campus data, run:
+> ```bash
+> php artisan db:setup --fresh
+> ```
+
+---
+
+## 💻 Running the Application
+
+You can start the development server using either of the following approaches:
+
+### Option A: Single Command (Recommended)
+Laravel 12 comes configured with concurrent task running:
+```bash
+composer run dev
+```
+*This simultaneously starts the Laravel server (`php artisan serve`), queue listener, logging pail, and the Vite dev server.*
+
+---
+
+### Option B: Running in Two Separate Terminals
+
+#### Terminal 1 — Backend Server
+```bash
+php artisan serve
+```
+*Runs the PHP server at `http://127.0.0.1:8000`.*
+
+#### Terminal 2 — Frontend Assets Bundler
+```bash
+npm run dev
+```
+*Compiles Tailwind CSS and hot-reloads frontend assets via Vite.*
+
+---
+
+## 🌐 Application URLs
+
+Once running, access the system in your web browser:
+
+| Page | URL | Description |
+| :--- | :--- | :--- |
+| **Campus Map** | `http://127.0.0.1:8000/` | Main interactive campus navigation map |
+| **Admin Panel** | `http://127.0.0.1:8000/admin` | Campus data and navigation management |
+| **Campus Data API** | `http://127.0.0.1:8000/api/campus-data` | JSON output of all buildings, rooms, and facilities |
+
+---
+
+## 🗄️ Database Structure
+
+- `buildings` — Building ID, building name, latitude, longitude, description.
+- `rooms` — Room ID, foreign key `building_id`, room number, room name.
+- `departments` — Department ID, foreign key `building_id`, department name.
+- `facilities` — Facility ID, facility name, latitude, longitude.
+- `navigation_history` — Search and destination log tracking popularity of locations.
+
+---
+
+## 🔧 Troubleshooting
+
+- **`SQLSTATE[HY000] [1049] Unknown database 'campus_navigation_db'`**:
+  Make sure you imported `database/campus_navigation_db.sql` into MySQL before running the app.
+- **`Vite manifest not found`**:
+  Make sure `npm run dev` is running in a terminal, or build production assets with `npm run build`.
+- **`No application encryption key has been specified`**:
+  Run `php artisan key:generate`.
