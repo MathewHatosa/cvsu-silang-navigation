@@ -4,18 +4,20 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
-// 1. User Navigation Map View
 Route::get('/', function () {
     return view('map');
 });
 
-// 2. Administrator Dashboard View
 Route::get('/admin', function () {
     $buildings = DB::table('buildings')->get();
     $rooms = DB::table('rooms')
         ->join('buildings', 'rooms.building_id', '=', 'buildings.building_id')
         ->select('rooms.*', 'buildings.building_name')
-        ->get();
+        ->get()
+        ->map(function ($r) {
+            $r->building = (object) ['building_name' => $r->building_name];
+            return $r;
+        });
     $departments = DB::table('departments')
         ->join('buildings', 'departments.building_id', '=', 'buildings.building_id')
         ->select('departments.*', 'buildings.building_name')
@@ -26,7 +28,6 @@ Route::get('/admin', function () {
     return view('admin', compact('buildings', 'rooms', 'departments', 'facilities', 'history'));
 });
 
-// 3. REST API: Fetch All Campus Data for the Map
 Route::get('/api/campus-data', function () {
     $buildings = DB::table('buildings')->get()->map(function ($b) {
         $b->rooms = DB::table('rooms')->where('building_id', $b->building_id)->get();
@@ -42,7 +43,6 @@ Route::get('/api/campus-data', function () {
     ]);
 });
 
-// 4. REST API: Log Navigation History
 Route::post('/api/navigation-history', function (Request $request) {
     DB::table('navigation_history')->insert([
         'user_id' => null,
@@ -52,7 +52,6 @@ Route::post('/api/navigation-history', function (Request $request) {
     return response()->json(['status' => 'logged']);
 });
 
-// 5. Admin Actions: Add & Delete Records
 Route::post('/admin/buildings', function (Request $request) {
     DB::table('buildings')->insert([
         'building_name' => $request->building_name,
@@ -63,7 +62,10 @@ Route::post('/admin/buildings', function (Request $request) {
     return redirect('/admin')->with('success', 'Building added successfully!');
 });
 
-Route::post('/admin/buildings/{id}/delete', function ($id) {
+Route::delete('/admin/buildings/{id}', function ($id) {
+    DB::table('rooms')->where('building_id', $id)->delete();
+    DB::table('departments')->where('building_id', $id)->delete();
+    DB::table('navigation_history')->where('destination_id', $id)->delete();
     DB::table('buildings')->where('building_id', $id)->delete();
     return redirect('/admin')->with('success', 'Building deleted!');
 });
@@ -77,7 +79,7 @@ Route::post('/admin/rooms', function (Request $request) {
     return redirect('/admin')->with('success', 'Room added successfully!');
 });
 
-Route::post('/admin/rooms/{id}/delete', function ($id) {
+Route::delete('/admin/rooms/{id}', function ($id) {
     DB::table('rooms')->where('room_id', $id)->delete();
     return redirect('/admin')->with('success', 'Room deleted!');
 });
