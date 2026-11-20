@@ -77,26 +77,13 @@ class SetupDatabase extends Command
                 ]
             );
 
-            // 4. Check if navigation tables are present or if fresh rebuild requested
-            $checkTable = $dbPdo->query("SHOW TABLES LIKE 'buildings'")->fetchAll();
-            $sqlFile = database_path('campus_navigation_db.sql');
-
-            if (empty($checkTable) || $this->option('fresh')) {
-                if (file_exists($sqlFile)) {
-                    $this->info("Importing campus data from [database/campus_navigation_db.sql]...");
-                    $sqlContent = file_get_contents($sqlFile);
-                    $dbPdo->exec($sqlContent);
-                    $this->info("Campus navigation tables and data imported successfully!");
-                } else {
-                    $this->warn("SQL file not found at [{$sqlFile}].");
-                }
-            } else {
-                $this->comment("Table `buildings` already exists. Skipping SQL file import (use --fresh to overwrite).");
-            }
-
-            // 5. Run remaining Laravel migrations (users, cache, jobs, sessions)
-            $this->info("Running remaining Laravel migrations...");
+            // 4. Run Laravel migrations (tables + campus navigation schema)
+            $this->info("Running Laravel migrations...");
             $this->call('migrate', ['--force' => true]);
+
+            // 5. Seed the database with campus navigation data
+            $this->info("Seeding campus navigation data...");
+            $this->call('db:seed', ['--force' => true]);
 
             $this->newLine();
             $this->info("Database setup finished successfully! You can now run the app.");

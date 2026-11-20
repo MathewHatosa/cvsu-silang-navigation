@@ -79,14 +79,14 @@ php artisan db:setup
 **What this automated command does:**
 1. Connects to MySQL using your `.env` configuration.
 2. Automatically creates the database (`campus_navigation_db`) if it doesn't already exist.
-3. Automatically imports `database/campus_navigation_db.sql` (buildings, rooms, departments, facilities, and navigation history).
-4. Runs all Laravel migrations (users, cache, jobs).
+3. Runs all migrations (including the native campus navigation schema).
+4. Seeds all buildings, departments, rooms, and facilities automatically via `CampusNavigationSeeder`.
 
 > [!TIP]
-> If you ever want to completely reset and recreate your database from scratch with fresh campus data, run:
-> ```bash
-> php artisan db:setup --fresh
-> ```
+> You can also use standard Laravel artisan commands:
+> - Run seeders only: `php artisan db:seed`
+> - Fresh reset + migrations + seeds: `php artisan migrate:fresh --seed`
+> - Or use our all-in-one helper: `php artisan db:setup --fresh`
 
 ---
 
